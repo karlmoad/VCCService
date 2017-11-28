@@ -1,0 +1,96 @@
+swagger: '2.0'
+info:
+  description: >-
+    This is a sample service providing the capability for an authenticated user
+    to store artifacts within a github repo as well as visualize the historical
+    versions of a file. Intent is to allow users unfamiliar with VCC and
+    git/github to utilize the benefits of these concepts without the
+    complexity.   THIS IS A SAMPLE AND NOT INTENDED FOR PRODUCTION
+  version: 1.0.0
+  title: Github VC Service
+  contact:
+    email: karl@koad.io
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+host: localhost
+basePath: /api/v1
+tags:
+  - name: save
+    description: Save a file and maintian history of changes
+  - name: files
+    description: Access files and history
+schemes:
+  - http
+paths:
+  /save:
+    put:
+      tags:
+        - save
+      summary: save a file and record the changes in the history chain
+      description: ''
+      operationId: saveToRepo
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: body
+          description: File to be stroed
+          required: true
+          schema:
+            $ref: '#/definitions/FileMetadata'
+      responses:
+        '200':
+          description: successful operation
+        '400':
+          description: Invalid
+      security:
+        - token: []
+  /file:
+    get:
+      tags:
+        - files
+      summary: Get file by path and name
+      operationId: getRepoFile
+      produces:
+        - application/json
+      parameters:
+        - name: status
+          in: query
+          description: Status values that need to be considered for filter
+          required: true
+          type: string
+          enum:
+            - latest
+            - history
+          default: latest
+      responses:
+        '200':
+          description: successful operation
+          schema:
+            $ref: '#/definitions/FileMetadata'
+        '400':
+          description: Invalid
+      security:
+        - token: []
+securityDefinitions:
+  token:
+    type: apiKey
+    name: auth
+    in: header
+definitions:
+  FileMetadata:
+    type: object
+    properties:
+      path:
+        type: string
+      name:
+        type: string
+      date:
+        type: string
+        format: date-time
+      status:
+        type: string
+        description: File contents Base64 encoded
