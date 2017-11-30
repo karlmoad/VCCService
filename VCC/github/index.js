@@ -1,12 +1,52 @@
-var GitHubApi = require('github');
+const GitHubApi = require('github');
 
 var configuration;
 var github;
 
+//initialize api connection params
 function init(config){
     configuration = config;
     github = new GitHubApi(configuration.github.config);
     github.authenticate(configuration.github.authentication);
+}
+
+//Get commit history of repo content item
+function getCommitHistory(path, ref){
+    var p = {
+        owner: configuration.github.owner,
+        repo: configuration.github.repo,
+        path: path
+    };
+
+    if(ref){
+        p['sha'] = ref
+    }
+
+    return github.repos.getCommits(p);
+}
+
+//Get the contents of a file or directory
+function getContents(path, ref){    
+    var p = {
+        owner: configuration.github.owner,
+        repo: configuration.github.repo,
+        path: path,
+    };
+    
+    if(ref){
+        p['ref'] = ref
+    }
+
+    return github.repos.getContent(p);
+}
+
+//Get a brach reference
+function getBranch(branch="master"){
+    return github.repos.getBranch({
+        owner: configuration.github.owner,
+        repo: configuration.github.repo,
+        branch: branch
+    });
 }
 
 // Get a reference object to which the branch head points
@@ -19,7 +59,7 @@ function getHEADReference(branch = "master"){
 }
 
 // Get the commit object to which the reference points 
-function getCommitForReference(referenceData){
+function getCommitForReference(referenceData){    
     return github.gitdata.getCommit({
         owner: configuration.github.owner,
         repo: configuration.github.repo,
@@ -28,7 +68,7 @@ function getCommitForReference(referenceData){
 }
 
 //Get the Tree to which a commit belongs
-function getTreeOfCommit(commitData){
+function getTreeForCommit(commitData){
     return github.gitdata.getTree({
         owner: configuration.github.owner,
         repo: configuration.github.repo,
@@ -36,6 +76,7 @@ function getTreeOfCommit(commitData){
     });
 }
 
+//create blob object within the repo
 function createBlob(fileMetadata){
     return github.gitdata.createBlob({
         owner: configuration.github.owner,
@@ -45,6 +86,7 @@ function createBlob(fileMetadata){
     });
 }
 
+//Create a new tree item for a Blob reference
 function createNewBlobTree(blobData, baseTree, fileMetadata){
     return github.gitdata.createTree({
         owner: configuration.github.owner,
@@ -61,6 +103,7 @@ function createNewBlobTree(blobData, baseTree, fileMetadata){
     });
 }
 
+//Create a new commit for a tree reference
 function createNewCommit(previousCommitData, treeData){
     return github.gitdata.createCommit({
         owner: configuration.github.owner,
@@ -71,6 +114,7 @@ function createNewCommit(previousCommitData, treeData){
     });
 }
 
+//Repoin the HEAD of the branch to a commit reference
 function repointBranchHEADReference(commitData, branch="master"){
     return github.gitdata.updateReference({
         owner: configuration.github.owner,
@@ -81,29 +125,74 @@ function repointBranchHEADReference(commitData, branch="master"){
     });
 }
 
+//External interface function 
 function commitFile(fileMetadata, branch=undefined){
+    var headReference, previousCommit, previousTree, blobData, newTree, newCommit;
+
     return getHEADReference(branch)
-        .then(headReference => {
-            getCommitForReference(headReference);
-        }).then(previousCommit =>{
-            getTreeOfCommit(previousCommit);
-        }).then(previousTree => {
-            putBlob(fileMetadata);
-        }).then(blobData, previousTree, fileMetadata => {
-            createNewBlobTree(blobData, previousTree, fileMetadata);
-        }).then(newTree, previousCommit => {
-            createNewCommit(previousCommit, newTree);
-        }).then(newCommit, branch => {
-            repointBranchHEADReference(newCommit, branch);
-        }).then(result => {
-            return new Promise(function(resolve, reject){
-                resolve({success: true});
-            });
+    .then(result => {
+        headReference = result;
+        return getCommitForReference(headReference);
+    }).then(result =>{
+        previousCommit = result;
+        return getTreeForCommit(previousCommit);
+    }).then(result => {
+        previousTree = result;
+        return createBlob(fileMetadata);
+    }).then(result => {
+        blobData = result;
+        return createNewBlobTree(blobData, previousTree, fileMetadata);
+    }).then(result => {
+        newTree = result;
+        return createNewCommit(previousCommit, newTree);
+    }).then(result => {
+        newCommit = result;
+        return repointBranchHEADReference(newCommit, branch);
+    }).then(result => {
+        return new Promise((resolve, reject)=>{
+            resolve({success: true});
         });
+    });
 }
 
-function getFile(fileMetadata, branch=undefined, history=false){
-    console.log("In git getFile function");
+//External interface function 
+function getFile(fileMetadata, branch="master", history=false){
+    if(history){
+        return getCommitHistory(fileMetadata.path, branch).then(results=>{
+            return Promise.all(results.data.map(item =>{
+                getContents(fileMetadata.path, item.sha).then(result=>{
+                    return new Promise((resolve, reject) => {
+                        var out = fileMetadata;
+                        out["commit"] = {hash: item.sha, date: item.commit.committer.date};
+                        out["hash"] = result.data.sha;
+                        out["size"] = result.data.size;
+                        out["encoding"] = result.data.encoding;
+                        out["content"] = result.data.content
+
+                        resolve(out);
+                    });   
+                }).catch(error=>{
+                    return new Promise({message: error.message});
+                });
+            }));
+        }).then(results =>{
+            console.log(results);
+        }).catch(error => {
+            console.log(error.message);
+        });
+    }else{
+        return getContents(fileMetadata.path, branch).then(result=>{
+            return new Promise((resolve, reject) => {
+                var out = fileMetadata;
+                out["hash"] = result.data.sha;
+                out["size"] = result.data.size;
+                out["encoding"] = result.data.encoding;
+                out["content"] = result.data.content
+                
+                resolve(out);
+            });
+        });
+    }
 }
 
 module.exports ={
