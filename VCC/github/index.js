@@ -155,25 +155,30 @@ function commitFile(fileMetadata, branch=undefined){
     });
 }
 
+
+//get the  content item for the path associated to the supplied commit
+function getCommitContent(commit, FileMetadata, branch){
+    return getContents(FileMetadata.path, commit.sha)
+    .then(result=>{
+        return new Promise((resolve, reject) => {
+            var out = fileMetadata;
+            out["commit"] = {hash: item.sha, date: item.commit.committer.date};
+            out["hash"] = result.data.sha;
+            out["size"] = result.data.size;
+            out["encoding"] = result.data.encoding;
+            out["content"] = result.data.content
+
+            resolve(out);
+        });       
+    });
+}
+
 //External interface function 
 function getFile(fileMetadata, branch="master", history=false){
     if(history){
         return getCommitHistory(fileMetadata.path, branch).then(results=>{
             return Promise.all(results.data.map(item =>{
-                getContents(fileMetadata.path, item.sha).then(result=>{
-                    return new Promise((resolve, reject) => {
-                        var out = fileMetadata;
-                        out["commit"] = {hash: item.sha, date: item.commit.committer.date};
-                        out["hash"] = result.data.sha;
-                        out["size"] = result.data.size;
-                        out["encoding"] = result.data.encoding;
-                        out["content"] = result.data.content
-
-                        resolve(out);
-                    });   
-                }).catch(error=>{
-                    return new Promise({message: error.message});
-                });
+                return getCommitContent(item, fileMetadata, branch);
             }));
         }).then(results =>{
             console.log(results);
