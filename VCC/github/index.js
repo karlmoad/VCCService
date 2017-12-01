@@ -155,7 +155,6 @@ function commitFile(fileMetadata, branch=undefined){
     });
 }
 
-
 //get the  content item for the path associated to the supplied commit
 function getCommitContent(commit, FileMetadata, branch){
     return getContents(FileMetadata.path, commit.sha)
