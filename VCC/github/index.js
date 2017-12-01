@@ -175,7 +175,8 @@ function getCommitContent(commit, FileMetadata, branch){
 //External interface function 
 function getFile(fileMetadata, branch="master", history=false){
     if(history){
-        return getCommitHistory(fileMetadata.path, branch).then(results=>{
+        return getCommitHistory(fileMetadata.path, branch)
+        .then(results=>{
             return Promise.all(results.data.map(item =>{
                 return getCommitContent(item, fileMetadata, branch);
             }));
