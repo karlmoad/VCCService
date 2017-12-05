@@ -1,3 +1,8 @@
+/*
+- API for doing a simple commit and file get from a github remote repository.
+-
+- Karl Moad 10/22/2017
+-*/
 const GitHubApi = require('github');
 
 var configuration;
@@ -26,13 +31,13 @@ function getCommitHistory(path, ref){
 }
 
 //Get the contents of a file or directory
-function getContents(path, ref){   
+function getContents(path, ref){
    var p = {
        owner: configuration.github.owner,
       repo: configuration.github.repo,
        path: path,
    };
-  
+
    if(ref){
        p['ref'] = ref
    }
@@ -59,7 +64,7 @@ function getHEADReference(branch = "master"){
 }
 
 // Get the commit object to which the reference points
-function getCommitForReference(referenceData){   
+function getCommitForReference(referenceData){
    return github.gitdata.getCommit({
        owner: configuration.github.owner,
        repo: configuration.github.repo,
@@ -180,7 +185,7 @@ function getFile(fileMetadata, branch="master", history=false){
                out["size"] = result.data.size;
                out["encoding"] = result.data.encoding;
                out["content"] = result.data.content
-              
+
                resolve([out]);
            });
        });
